@@ -1,0 +1,51 @@
+{
+  "name": "roth-conversion-toolkit",
+  "version": "0.1.0",
+  "description": "The 2026 Roth conversion math nobody's calculator runs: federal brackets plus the Social Security tax torpedo, the temporary senior-deduction clawback, and Medicare IRMAA cliffs two years out, with the list of accounts that can never convert. Every figure primary-source verified and dated. Zero dependencies, nothing leaves the browser.",
+  "keywords": [
+    "roth-conversion",
+    "roth-ira",
+    "ira",
+    "rmd",
+    "irmaa",
+    "retirement",
+    "tax-calculator",
+    "social-security",
+    "estate-planning",
+    "fintech",
+    "legal-tech"
+  ],
+  "homepage": "https://stepuplaw.com/roth-conversion-calculator",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stepuplaw/roth-conversion-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stepuplaw/roth-conversion-toolkit/issues"
+  },
+  "author": "Kevin D. Klagge, Esq. <office@stepuplaw.com> (https://stepuplaw.com)",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pretest": "npm run build",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

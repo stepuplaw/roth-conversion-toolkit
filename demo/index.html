@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- The live tool at stepuplaw.com/roth-conversion-calculator is the
+         canonical page; this demo exists so the repo can be tried without
+         leaving GitHub, and stays out of search on purpose. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>roth-conversion-toolkit demo</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+        color: #1e293b;
+      }
+      h1 { font-size: 26px; }
+      p.lead { color: #475569; }
+      a { color: #1f4d3a; }
+    </style>
+  </head>
+  <body>
+    <h1>roth-conversion-toolkit</h1>
+    <p class="lead">
+      This is the embeddable widget, running from the copy in this repo. The
+      polished version lives at
+      <a href="https://stepuplaw.com/roth-conversion-calculator">stepuplaw.com/roth-conversion-calculator</a>,
+      and the two-line embed instructions are at
+      <a href="https://stepuplaw.com/roth-conversion-widget">stepuplaw.com/roth-conversion-widget</a>.
+      Nothing typed here leaves the browser.
+    </p>
+    <div data-stepup-roth></div>
+    <script src="../widget/roth-conversion.js" async></script>
+  </body>
+</html>
