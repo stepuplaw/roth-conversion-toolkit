@@ -202,32 +202,63 @@
 
   /* ---------- styles ---------- */
 
+  /* --surc-line is the hairline used inside the card. --surc-edge is the heavier
+     one used for the outer frame and the section rules, so an embedder can
+     strengthen the outline without darkening every internal divider. */
   var CSS =
     '.surc{--surc-brand:#1F4D3A;--surc-fg:#1E293B;--surc-mut:#475569;--surc-line:rgba(71,85,105,.25);' +
-    'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--surc-fg);font-size:16px;line-height:1.55;max-width:760px}' +
+    '--surc-edge:rgba(45,60,72,.62);' +
+    'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--surc-fg);' +
+    'font-size:16px;line-height:1.6;max-width:760px;border:2px solid var(--surc-edge);border-radius:14px;' +
+    'background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,26,.07),0 8px 24px rgba(20,32,26,.09)}' +
     '.surc *{box-sizing:border-box}' +
-    '.surc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}' +
-    '@media(max-width:560px){.surc-grid{grid-template-columns:1fr}}' +
+    /* Header strip, the same recessed bar the credit freeze widget uses for its
+       tabs, so the two tools read as one family. */
+    '.surc-hd{background:#EDEAE0;border-bottom:2px solid var(--surc-edge);padding:13px 20px}' +
+    '.surc-hd b{display:block;font-size:16px;font-weight:700;color:var(--surc-brand);letter-spacing:.005em}' +
+    '.surc-hd span{display:block;font-size:12.5px;color:var(--surc-mut);margin-top:2px}' +
+    /* Inputs sit on a tint so the answer area below reads as a separate half. */
+    '.surc-in{background:#FAF9F5;border-bottom:2px solid var(--surc-edge);padding:16px 20px}' +
+    '.surc-body{padding:16px 20px}' +
+    '.surc-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px}' +
+    '@media(max-width:560px){.surc-grid{grid-template-columns:1fr}' +
+    '.surc-hd,.surc-in,.surc-body,.surc-foot{padding-left:14px;padding-right:14px}}' +
     '.surc label{display:block}' +
-    '.surc .surc-lab{font-weight:600;display:block;margin-bottom:4px}' +
-    '.surc .surc-hint{font-size:13px;color:var(--surc-mut);margin-top:3px;display:block}' +
-    '.surc input,.surc select{width:100%;padding:8px 10px;font-size:16px;border:1px solid var(--surc-line);border-radius:8px;background:#fff;color:var(--surc-fg)}' +
-    '.surc-cards{display:grid;gap:12px;margin-top:16px}' +
-    '.surc-card{border:1px solid var(--surc-line);border-radius:10px;padding:14px 16px}' +
-    '.surc-card.surc-head{border:2px solid var(--surc-brand)}' +
-    '.surc-card.surc-warn{border:2px solid #B08D2E;background:rgba(176,141,46,.07)}' +
-    '.surc-card h4{margin:0 0 6px;font-size:16.5px}' +
-    '.surc-card p{margin:6px 0 0}' +
-    '.surc-card ul{margin:6px 0 0;padding-left:20px}' +
-    '.surc-card li{margin-top:4px}' +
-    '.surc-tbl{width:100%;border-collapse:collapse;margin-top:8px;font-size:15px}' +
-    '.surc-tbl th,.surc-tbl td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--surc-line)}' +
-    '.surc-tbl th{font-weight:600}' +
-    '.surc-small{font-size:13.5px;color:var(--surc-mut)}' +
-    '.surc-foot{margin-top:14px;font-size:13px;color:var(--surc-mut);border-top:1px solid var(--surc-line);padding-top:10px}' +
-    '.surc-foot a{color:var(--surc-brand)}' +
-    '.surc details{margin-top:10px}' +
-    '.surc summary{cursor:pointer;font-weight:600}';
+    '.surc .surc-lab{font-weight:600;display:block;margin-bottom:4px;font-size:14.5px}' +
+    '.surc .surc-hint{font-size:12.5px;color:var(--surc-mut);margin-top:4px;display:block;line-height:1.5}' +
+    '.surc input,.surc select{width:100%;padding:9px 11px;font-size:16px;border:1px solid var(--surc-line);' +
+    'border-radius:8px;background:#fff;color:var(--surc-fg)}' +
+    '.surc input:focus,.surc select:focus{outline:0;border-color:var(--surc-brand);' +
+    'box-shadow:0 0 0 3px rgba(31,77,58,.15)}' +
+    '.surc-cards{display:grid;gap:13px}' +
+    /* Every answer card gets a titled bar, so the sections are distinct at a
+       glance instead of running together as one wall of boxes. */
+    '.surc-card{border:1px solid var(--surc-edge);border-radius:10px;overflow:hidden;background:#fff}' +
+    '.surc-card h4{margin:0;font-size:15px;font-weight:700;letter-spacing:.005em;padding:9px 15px;' +
+    'background:#F2F0E8;border-bottom:1px solid var(--surc-edge);color:var(--surc-fg)}' +
+    '.surc-card .surc-bd{padding:13px 15px}' +
+    '.surc-card.surc-head{border-color:var(--surc-brand)}' +
+    '.surc-card.surc-head h4{background:var(--surc-brand);color:#fff;border-bottom-color:var(--surc-brand)}' +
+    '.surc-card.surc-warn{border-color:#B08D2E}' +
+    '.surc-card.surc-warn h4{background:#B08D2E;color:#fff;border-bottom-color:#B08D2E}' +
+    '.surc-card.surc-warn .surc-bd{background:rgba(176,141,46,.07)}' +
+    '.surc-card p{margin:8px 0 0}.surc-card p:first-child{margin-top:0}' +
+    '.surc-card ul{margin:8px 0 0;padding-left:20px}' +
+    '.surc-card li{margin-top:5px}' +
+    '.surc-tbl{width:100%;border-collapse:collapse;margin-top:10px;font-size:15px}' +
+    '.surc-tbl th,.surc-tbl td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--surc-line)}' +
+    '.surc-tbl tr:last-child td{border-bottom:0}' +
+    '.surc-tbl th{font-weight:700;background:#FAF9F5;border-bottom-color:var(--surc-edge)}' +
+    '.surc-small{font-size:13px;color:var(--surc-mut);line-height:1.55}' +
+    '.surc-foot{font-size:12px;color:var(--surc-mut);border-top:2px solid var(--surc-edge);' +
+    'background:#F7F5EF;padding:14px 20px;line-height:1.65}' +
+    '.surc-foot a{color:var(--surc-brand);font-weight:600}' +
+    '.surc-foot strong{color:var(--surc-fg)}' +
+    '.surc details{margin-top:0}' +
+    '.surc summary{cursor:pointer;font-weight:700;font-size:15px;padding:11px 15px;background:#F2F0E8;' +
+    'border:1px solid var(--surc-edge);border-radius:10px;list-style-position:inside}' +
+    '.surc details[open] summary{border-radius:10px 10px 0 0;border-bottom-color:var(--surc-line)}' +
+    '.surc details .surc-card{border-radius:0 0 10px 10px;border-top:0;margin-top:0}';
 
   /* ---------- UI ---------- */
 
@@ -235,6 +266,9 @@
     var showCredit = String(root.getAttribute('data-surc-credit')).toLowerCase() !== 'off';
     root.className = (root.className ? root.className + ' ' : '') + 'surc';
     root.innerHTML =
+      '<div class="surc-hd"><b>Roth conversion calculator</b>' +
+      '<span>2026 federal figures, verified ' + VERIFIED + '. Nothing you type leaves your browser.</span></div>' +
+      '<div class="surc-in">' +
       '<div class="surc-grid">' +
       '<label><span class="surc-lab">Filing status</span><select data-f="status">' +
       '<option value="mfj">Married filing jointly</option>' +
@@ -259,13 +293,13 @@
       '<span class="surc-hint">Municipal bond interest. It is tax free but still counts toward Medicare and Social Security thresholds.</span></label>' +
       '<label><span class="surc-lab">Amount you are considering converting</span><input data-f="conv" inputmode="numeric" placeholder="e.g. 50,000">' +
       '<span class="surc-hint">Leave it blank to see how much room your brackets hold.</span></label>' +
-      '</div>' +
-      '<div class="surc-cards" data-out="cards"></div>' +
+      '</div></div>' +
+      '<div class="surc-body"><div class="surc-cards" data-out="cards"></div></div>' +
       '<div class="surc-foot">' +
       'This is general information and an estimate, not legal or tax advice, and it creates no attorney-client relationship. ' +
       'It assumes the standard deduction and 2026 federal figures. It does not model itemized deductions (including the medical expense deduction, which a conversion shrinks by raising your income), ' +
       'the 3.8 percent net investment income tax, the qualified business income deduction, or health insurance subsidies before age 65. State income tax is not included (Florida has none). ' +
-      'Figures verified against Rev. Proc. 2025-32, the IRS senior-deduction pages, the CMS 2026 fact sheet, and IRC section 86 on <strong>' + VERIFIED + '</strong>. ' +
+      'Figures verified against Rev. Proc. 2025-32, IRC section 151(d)(5) with IRS Schedule 1-A, the CMS 2026 fact sheet, and IRC section 86 on <strong>' + VERIFIED + '</strong>. ' +
       (showCredit
         ? 'Roth conversion calculator by Klagge Law, PLLC. Full guide at <a href="' + TOOL + '" target="_blank" rel="noopener">stepuplaw.com</a>.'
         : '') +
@@ -294,7 +328,8 @@
     ['status', 'sp65', 'mfsapart'].forEach(function (k) { els[k].addEventListener('change', render); });
 
     function card(kind, title, body) {
-      return '<div class="surc-card surc-' + kind + '"><h4>' + title + '</h4>' + body + '</div>';
+      return '<div class="surc-card surc-' + kind + '"><h4>' + title + '</h4>' +
+        '<div class="surc-bd">' + body + '</div></div>';
     }
 
     function render() {
@@ -419,7 +454,12 @@
         var wasInBand = base.magi > thr && base.senior > 0;
         if (inBand || wasInBand || (base.senior > 0 && conv > 0 && at.senior === 0)) {
           h += card('card', 'The 2025 to 2028 wrinkle almost every article misses',
-            '<p>The new $6,000 senior deduction phases out at 6 cents per dollar of income above ' + usd(thr) + ', and it exists only for tax years 2025 through 2028. Inside that band, each converted dollar carries the bracket rate plus the clawback. After 2028 the clawback disappears with the deduction. For income in this band, the arithmetic can favor converting <em>less</em> now and more after 2028, the opposite of the usual advice.</p>');
+            '<p>The new $6,000 senior deduction starts phasing out above ' + usd(thr) + ' of income, and it exists only for tax years 2025 through 2028. ' +
+            (status === 'mfj' && inp.sp65 && inp.you65
+              ? 'Because it is $6,000 each and the reduction hits each share separately, the two of you give back 12 cents per dollar rather than 6. '
+              : 'The reduction runs at 6 cents per dollar. ') +
+            'So inside that band a converted dollar costs its bracket rate plus the clawback, and after 2028 the clawback goes away along with the deduction.</p>' +
+            '<p class="surc-small">For income sitting inside the band, that can favor converting a little less now and more from 2029. Treat it as a tiebreaker rather than a plan. Below the band the reverse is true, because the deduction is bracket room that simply expires, and the whole effect is worth at most a few hundred dollars a year.</p>');
         }
       }
 
@@ -427,7 +467,7 @@
       if (conv > 0) {
         var effNow = (at.tax - base.tax) / conv;
         var later = [0.12, 0.22, 0.24, 0.32];
-        var beb = '<p>A conversion pays off when today’s rate is lower than the rate the money would face coming out later, whether that is your own RMD-swollen bracket, a surviving spouse filing single, or children emptying the account within 10 years during their peak earnings.</p>';
+        var beb = '<p>A conversion pays off when today’s rate is lower than the rate this money would face on the way out later. Later usually means one of three things. Your own bracket once required distributions start filling it, a surviving spouse paying single rates after the first death, or children emptying the account inside ten years while they are earning the most they ever will.</p>';
         beb += '<table class="surc-tbl"><tr><th>If it would come out later at</th><th>Every $100,000 converted saves about</th></tr>';
         for (var k = 0; k < later.length; k++) {
           var diff = (later[k] - effNow) * 100000;
@@ -440,7 +480,7 @@
 
       /* never-convert list */
       h += '<details><summary>Money that cannot convert, and the traps around it</summary>' +
-        '<div class="surc-card" style="margin-top:8px">' +
+        '<div class="surc-card"><div class="surc-bd">' +
         '<ul>' +
         '<li><strong>This year’s RMD.</strong> In any RMD year the required distribution comes out first and can never be converted. Converting it creates an excess Roth contribution with a 6% excise tax each year until corrected.</li>' +
         '<li><strong>An inherited IRA, unless you are the surviving spouse.</strong> A non-spouse beneficiary can never convert an inherited traditional IRA, and the workaround people trade online, withdrawing and recontributing, fails too. Only a spouse who treats the account as their own can convert.</li>' +
@@ -448,7 +488,7 @@
         '<li><strong>Anything you might want back.</strong> Conversions became irreversible in 2018. There is no recharacterization and no undo.</li>' +
         '<li><strong>401(k) money, without care.</strong> Employer-plan money can reach a Roth, but move it by direct rollover. A check paid to you triggers mandatory 20% withholding you must replace from other money within 60 days. And if you are still working past RMD age at that employer, plan money can wait while IRA money cannot.</li>' +
         '<li><strong>Each conversion runs its own 5-year clock</strong> if you are under 59½, separate from the Roth earnings clock. Converting money you will need within five years deserves a hard look first.</li>' +
-        '</ul></div></details>';
+        '</ul></div></div></details>';
 
       out.innerHTML = h;
     }
