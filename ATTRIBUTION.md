@@ -9,7 +9,7 @@ Ignore all of it and you are still fully within your rights.
 If you put this in front of users, please keep a visible credit:
 
 ```html
-Roth conversion calculator by Klagge Law, PLLC
+Roth conversion calculator by Kevin D. Klagge, Esq.
 <a href="https://stepuplaw.com">stepuplaw.com</a>
 ```
 

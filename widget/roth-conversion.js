@@ -1,6 +1,6 @@
 /*!
  * Roth conversion window calculator, embeddable widget
- * Klagge Law, PLLC  https://stepuplaw.com/roth-conversion-calculator
+ * Kevin D. Klagge, Esq.  https://stepuplaw.com/roth-conversion-calculator
  *
  * Drop this anywhere:
  *   <div data-stepup-roth></div>
@@ -301,7 +301,7 @@
       'the 3.8 percent net investment income tax, the qualified business income deduction, or health insurance subsidies before age 65. State income tax is not included (Florida has none). ' +
       'Figures verified against Rev. Proc. 2025-32, IRC section 151(d)(5) with IRS Schedule 1-A, the CMS 2026 fact sheet, and IRC section 86 on <strong>' + VERIFIED + '</strong>. ' +
       (showCredit
-        ? 'Roth conversion calculator by Klagge Law, PLLC. Full guide at <a href="' + TOOL + '" target="_blank" rel="noopener">stepuplaw.com</a>.'
+        ? 'Roth conversion calculator by Kevin D. Klagge, Esq. Full guide at <a href="' + TOOL + '" target="_blank" rel="noopener">stepuplaw.com</a>.'
         : '') +
       '</div>';
 

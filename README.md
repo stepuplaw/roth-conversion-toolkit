@@ -159,6 +159,6 @@ gains now have their own input and are taxed on their own schedule.
 
 ## Credit
 
-Built by [Klagge Law, PLLC](https://stepuplaw.com), a Miami estate planning
+Built by [Kevin D. Klagge, Esq.](https://stepuplaw.com), a Miami estate planning
 and probate litigation firm, for its own clients first. Attribution is a
 request rather than a condition; see [ATTRIBUTION.md](./ATTRIBUTION.md).
