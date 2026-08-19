@@ -207,10 +207,10 @@
      strengthen the outline without darkening every internal divider. */
   var CSS =
     '.surc{--surc-brand:#1F4D3A;--surc-fg:#1E293B;--surc-mut:#475569;--surc-line:rgba(71,85,105,.25);' +
-    '--surc-edge:rgba(45,60,72,.62);' +
+    '--surc-edge:#334155;' +
     'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--surc-fg);' +
     'font-size:16px;line-height:1.6;max-width:760px;border:2px solid var(--surc-edge);border-radius:14px;' +
-    'background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,26,.07),0 8px 24px rgba(20,32,26,.09)}' +
+    'background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,26,.10),0 10px 28px rgba(20,32,26,.13)}' +
     '.surc *{box-sizing:border-box}' +
     /* Header strip, the same recessed bar the credit freeze widget uses for its
        tabs, so the two tools read as one family. */
