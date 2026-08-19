@@ -18,25 +18,26 @@
  * https://github.com/stepuplaw/roth-conversion-toolkit/blob/main/ATTRIBUTION.md
  *
  * Every figure in here was read from the primary document it belongs to, on
- * the VERIFIED date below. The 2026 rate tables and standard deduction come
- * from Rev. Proc. 2025-32 read directly, the senior deduction and its
- * 2025 through 2028 sunset from the IRS eligibility pages, the 2026 Medicare
- * IRMAA schedule from the CMS fact sheet, and the Social Security thresholds
- * from Internal Revenue Code section 86. Tax figures change every year. Load
- * this file from stepuplaw.com rather than copying it, and your embed stays
- * current automatically.
+ * the VERIFIED date below. The 2026 rate tables, standard deduction and
+ * capital-gain rate ceilings come from Rev. Proc. 2025-32 sections 4.01, 4.14
+ * and 4.03 read directly; the senior deduction from IRC 151(d)(5) as added by
+ * Pub. L. 119-21 and from IRS Schedule 1-A; the 2026 Medicare IRMAA schedule
+ * from the CMS fact sheet; the Social Security thresholds from IRC section 86.
+ * Tax figures change every year. Load this file from stepuplaw.com rather than
+ * copying it, and your embed stays current automatically.
  */
 (function () {
   'use strict';
 
   var HOME = 'https://stepuplaw.com';
   var TOOL = HOME + '/roth-conversion-calculator';
-  var VERIFIED = 'August 18, 2026';
+  var VERIFIED = 'August 19, 2026';
   var YEAR = 2026;
 
   /* ---------- verified 2026 figures ---------- */
 
-  /* Rev. Proc. 2025-32, section 3.01. Each row is [top of band, base tax, rate]. */
+  /* Rev. Proc. 2025-32, section 4.01 (section 4 carries the 2026 items; section 3
+     is the 2025 modification). Each row is [top of band, base tax, rate]. */
   var BRACKETS = {
     mfj: [[24800, 0, 0.10], [100800, 2480, 0.12], [211400, 11600, 0.22], [403550, 35932, 0.24], [512450, 82048, 0.32], [768700, 116896, 0.35], [Infinity, 206583.5, 0.37]],
     single: [[12400, 0, 0.10], [50400, 1240, 0.12], [105700, 5800, 0.22], [201775, 17966, 0.24], [256225, 41024, 0.32], [640600, 58448, 0.35], [Infinity, 192979.25, 0.37]],
@@ -44,6 +45,13 @@
     mfs: [[12400, 0, 0.10], [50400, 1240, 0.12], [105700, 5800, 0.22], [201775, 17966, 0.24], [256225, 41024, 0.32], [384350, 58448, 0.35], [Infinity, 103291.75, 0.37]]
   };
   var STD = { mfj: 32200, single: 16100, hoh: 24150, mfs: 16100 };
+
+  /* Rev. Proc. 2025-32 section 4.03 (IRC 1(h), 1(j)(5)): the ceilings for the
+     0% and 15% rates on qualified dividends and long-term gains. These are
+     levels of TOTAL taxable income, because that income stacks on top of
+     ordinary income rather than getting its own allowance. */
+  var PREF0 = { mfj: 98900, single: 49450, hoh: 66200, mfs: 49450 };
+  var PREF15 = { mfj: 613700, single: 545500, hoh: 579600, mfs: 306850 };
 
   /* IRC section 86 thresholds, statutory and never indexed. MFS living with
      the spouse at any time in the year has a base of zero. */
@@ -95,12 +103,28 @@
     var t1 = Math.min(0.5 * (SS_ADJ[s] - SS_BASE[s]), 0.5 * ben);
     return Math.min(0.85 * (pi - SS_ADJ[s]) + t1, 0.85 * ben);
   }
+  /* IRC 151(d)(5)(C) and IRS Schedule 1-A Part V. The 6% reduction applies to
+     the PER-PERSON 6,000 and each qualified individual then claims the reduced
+     amount (form line 35 computed once, entered on both 36a and 36b), so a
+     couple both 65+ is fully phased out at 250,000, not 350,000. The MAGI here
+     excludes tax-exempt interest, unlike the IRMAA MAGI. */
   function seniorDed(magi, status, you65, sp65) {
     if (status === 'mfs') return 0; /* joint filing is a condition of the deduction */
     var n = (you65 ? 1 : 0) + (status === 'mfj' && sp65 ? 1 : 0);
     if (!n) return 0;
     var thr = status === 'mfj' ? 150000 : 75000;
-    return Math.max(0, n * 6000 - 0.06 * Math.max(0, magi - thr));
+    return n * Math.max(0, 6000 - 0.06 * Math.max(0, magi - thr));
+  }
+  /* Tax on qualified dividends and long-term gains, IRC 1(h). They stack on
+     top of ordinary income, so a conversion slides in underneath and can push
+     them from 0% into 15%. */
+  function prefTax(ordinaryTaxable, pref, status) {
+    var amt = Math.max(0, pref);
+    var at0 = Math.min(amt, Math.max(0, PREF0[status] - ordinaryTaxable));
+    var room = Math.max(0, PREF15[status] - Math.max(ordinaryTaxable, PREF0[status]));
+    var at15 = Math.min(amt - at0, room);
+    var at20 = amt - at0 - at15;
+    return { at0: at0, at15: at15, at20: at20, tax: 0.15 * at15 + 0.20 * at20 };
   }
   function agedAdd(status, you65, sp65) {
     if (status === 'mfj') return (you65 ? 1650 : 0) + (sp65 ? 1650 : 0);
@@ -133,27 +157,38 @@
     return 71; /* display only; these cohorts started long ago */
   }
   function scen(inp, conv) {
-    var other = inp.other + conv;
-    var tss = taxableSS(inp.ss, other, inp.exempt, inp.status, inp.mfsApart);
-    var agi = other + tss;
-    var magi = agi + inp.exempt;
-    var sen = seniorDed(magi, inp.status, inp.you65, inp.sp65);
+    var qual = Math.max(0, inp.qual || 0);
+    var other = inp.other + conv;              /* ordinary, conversion included */
+    var tss = taxableSS(inp.ss, other + qual, inp.exempt, inp.status, inp.mfsApart);
+    var agi = other + qual + tss;
+    /* Two different MAGIs on purpose: IRMAA counts tax-exempt interest, the
+       senior deduction does not. */
+    var irmaaMagi = agi + inp.exempt;
+    var seniorMagi = agi;
+    var sen = seniorDed(seniorMagi, inp.status, inp.you65, inp.sp65);
     var ded = STD[inp.status] + agedAdd(inp.status, inp.you65, inp.sp65) + sen;
     var taxable = Math.max(0, agi - ded);
+    var tpref = Math.min(qual, taxable);       /* deductions come off ordinary first */
+    var tord = taxable - tpref;
+    var p = prefTax(tord, tpref, inp.status);
+    var ordTax = federalTax(tord, inp.status);
     return {
-      conv: conv, tss: tss, agi: agi, magi: magi, senior: sen, ded: ded,
-      taxable: taxable, tax: federalTax(taxable, inp.status),
-      bracket: bracketAt(taxable, inp.status),
-      irmaa: irmaaTier(magi, inp.status, inp.status === 'mfs' && !inp.mfsApart)
+      conv: conv, tss: tss, agi: agi, magi: irmaaMagi, seniorMagi: seniorMagi,
+      senior: sen, ded: ded, taxable: taxable, tord: tord, tpref: tpref,
+      prefTax: p.tax, tax: ordTax + p.tax,
+      bracket: bracketAt(tord, inp.status),
+      irmaa: irmaaTier(irmaaMagi, inp.status, inp.status === 'mfs' && !inp.mfsApart)
     };
   }
+  /* Solves on ORDINARY taxable income: the brackets apply to that portion, and
+     preferential income rides on top on its own schedule. */
   function solveToTaxable(inp, target) {
-    if (scen(inp, 0).taxable >= target) return 0;
+    if (scen(inp, 0).tord >= target) return 0;
     var lo = 0, hi = 5000000;
-    if (scen(inp, hi).taxable < target) return null;
+    if (scen(inp, hi).tord < target) return null;
     for (var i = 0; i < 50; i++) {
       var mid = (lo + hi) / 2;
-      if (scen(inp, mid).taxable >= target) hi = mid; else lo = mid;
+      if (scen(inp, mid).tord >= target) hi = mid; else lo = mid;
     }
     return Math.round(hi);
   }
@@ -215,8 +250,10 @@
       '<label data-row="sp65"><span class="surc-lab">Is your spouse 65 or older this year?</span><select data-f="sp65">' +
       '<option value="no">No</option><option value="yes">Yes</option>' +
       '</select></label>' +
-      '<label><span class="surc-lab">2026 income before the conversion, not counting Social Security</span><input data-f="other" inputmode="numeric" placeholder="e.g. 80,000">' +
-      '<span class="surc-hint">Pensions, wages, interest, dividends, capital gains, IRA withdrawals. Use your best estimate.</span></label>' +
+      '<label><span class="surc-lab">2026 ordinary income before the conversion, not counting Social Security</span><input data-f="other" inputmode="numeric" placeholder="e.g. 80,000">' +
+      '<span class="surc-hint">Pensions, wages, interest, annuity and IRA withdrawals. Put qualified dividends and long-term capital gains in the next box instead, they are taxed on a different schedule.</span></label>' +
+      '<label><span class="surc-lab">Qualified dividends and long-term capital gains</span><input data-f="qual" inputmode="numeric" placeholder="usually 0">' +
+      '<span class="surc-hint">Taxed at 0, 15 or 20 percent, and they sit on top of your other income. A conversion slides in underneath and can push them into a higher rate.</span></label>' +
       '<label><span class="surc-lab">Social Security benefits for 2026, if any</span><input data-f="ss" inputmode="numeric" placeholder="e.g. 36,000"></label>' +
       '<label><span class="surc-lab">Tax-exempt interest, if any</span><input data-f="exempt" inputmode="numeric" placeholder="usually 0">' +
       '<span class="surc-hint">Municipal bond interest. It is tax free but still counts toward Medicare and Social Security thresholds.</span></label>' +
@@ -226,7 +263,8 @@
       '<div class="surc-cards" data-out="cards"></div>' +
       '<div class="surc-foot">' +
       'This is general information and an estimate, not legal or tax advice, and it creates no attorney-client relationship. ' +
-      'It assumes the standard deduction, ordinary income only, and 2026 federal figures. State income tax is not included (Florida has none). ' +
+      'It assumes the standard deduction and 2026 federal figures. It does not model itemized deductions (including the medical expense deduction, which a conversion shrinks by raising your income), ' +
+      'the 3.8 percent net investment income tax, the qualified business income deduction, or health insurance subsidies before age 65. State income tax is not included (Florida has none). ' +
       'Figures verified against Rev. Proc. 2025-32, the IRS senior-deduction pages, the CMS 2026 fact sheet, and IRC section 86 on <strong>' + VERIFIED + '</strong>. ' +
       (showCredit
         ? 'Roth conversion calculator by Klagge Law, PLLC. Full guide at <a href="' + TOOL + '" target="_blank" rel="noopener">stepuplaw.com</a>.'
@@ -245,7 +283,7 @@
     var out = root.querySelector('[data-out="cards"]');
     var ageHint = root.querySelector('[data-out="agehint"]');
 
-    ['other', 'ss', 'exempt', 'conv'].forEach(function (k) {
+    ['other', 'qual', 'ss', 'exempt', 'conv'].forEach(function (k) {
       els[k].addEventListener('input', function () {
         var raw = els[k].value.replace(/[^0-9]/g, '');
         els[k].value = raw ? Number(raw).toLocaleString('en-US') : '';
@@ -272,6 +310,7 @@
       var inp = {
         status: status,
         other: num(els.other.value),
+        qual: num(els.qual.value),
         ss: num(els.ss.value),
         exempt: num(els.exempt.value),
         you65: !!by && age >= 65,
@@ -280,7 +319,7 @@
       };
       var conv = num(els.conv.value);
 
-      if (!by || (!inp.other && !inp.ss)) {
+      if (!by || (!inp.other && !inp.ss && !inp.qual)) {
         out.innerHTML = card('card', 'Enter your birth year and income to begin',
           '<p class="surc-small">Nothing you type here leaves your browser.</p>');
         return;
@@ -306,11 +345,13 @@
       }
 
       /* bracket picture */
-      var bb = '<p>Before any conversion, your taxable income is about <strong>' + usd(base.taxable) + '</strong>, in the <strong>' + pct(base.bracket.rate) + '</strong> bracket.</p>';
+      var bb = '<p>Before any conversion, your taxable income is about <strong>' + usd(base.taxable) + '</strong>' +
+        (base.tpref > 0 ? ', of which ' + usd(base.tpref) + ' is dividends and long-term gains taxed on their own schedule, leaving ' + usd(base.tord) + ' in the <strong>' + pct(base.bracket.rate) + '</strong> ordinary bracket.</p>'
+                        : ', in the <strong>' + pct(base.bracket.rate) + '</strong> bracket.</p>');
       var rows = BRACKETS[status];
       var fills = [];
       for (var i = 0; i < rows.length - 1 && fills.length < 3; i++) {
-        if (rows[i][0] <= base.taxable) continue;
+        if (rows[i][0] <= base.tord) continue;
         var c = solveToTaxable(inp, rows[i][0]);
         if (c !== null && c > 0) fills.push({ rate: rows[i][2], c: c });
       }
@@ -340,6 +381,10 @@
         if (claw > 50) {
           cb += '<p><strong>Senior deduction effect.</strong> This conversion claws back ' + usd(claw) + ' of the new senior deduction, also included above.</p>';
         }
+        var disp = at.prefTax - base.prefTax;
+        if (disp > 5) {
+          cb += '<p><strong>Capital gains effect.</strong> The conversion is ordinary income, so it slides in underneath your dividends and long-term gains and pushes ' + usd(disp) + ' of them into a higher rate. That is included above and it is the effect most calculators leave out entirely.</p>';
+        }
         cb += '<p class="surc-small">Paying the tax from money outside the IRA keeps the full converted amount growing tax free, and it quietly shrinks a taxable estate with no gift tax. Withholding the tax from the conversion itself can add an early-withdrawal penalty before age 59½.</p>';
         h += card('head', 'What this conversion costs', cb);
       }
@@ -359,7 +404,8 @@
             ? 'You are <strong>' + usd(at.irmaa.head) + '</strong> below the next cliff.</p>'
             : 'You are in the top tier already.</p>';
         }
-        ib += '<p class="surc-small">Medicare premiums are set from your income two years back, so a ' + YEAR + ' conversion sets your ' + premYear + ' premium. Each threshold is a cliff. One dollar over it triggers the whole surcharge' + (status === 'mfj' ? ' for both spouses' : '') + '.</p>';
+        ib += '<p class="surc-small">Medicare premiums are set from your income two years back, so a ' + YEAR + ' conversion sets your ' + premYear + ' premium. Each threshold is a cliff. One dollar over it triggers the whole surcharge' + (status === 'mfj' ? ' for both spouses' : '') + '. ' +
+          'The ' + premYear + ' brackets are not published yet, so this uses the ' + YEAR + ' schedule. Those thresholds rise with inflation each year, which means a figure just over a line here may well sit under the real ' + premYear + ' line, and the surcharge itself will be higher than the ' + YEAR + ' dollars shown.</p>';
         if (status === 'mfs' && !inp.mfsApart) {
           ib += '<p><strong>Filing separately is the harsh lane.</strong> There is no gentle first step. One dollar over ' + usd(109000) + ' lands directly on a surcharge of about ' + usd2(446.30 + 83.30) + ' per month.</p>';
         }

@@ -7,6 +7,8 @@ import {
   IRMAA_2026,
   IRMAA_2026_MFS,
   PART_B_STANDARD_2026,
+  PREFERENTIAL_FIFTEEN_TOP_2026,
+  PREFERENTIAL_ZERO_TOP_2026,
   SS_BASE,
   SS_ADJUSTED_BASE,
 } from '../dist/index.js';
@@ -39,6 +41,13 @@ test('widget carries the standard deductions', () => {
   expectLiteral(1650, 'aged addition, married');
   expectLiteral(2050, 'aged addition, unmarried');
   expectLiteral(6000, 'senior deduction');
+});
+
+test('widget carries the preferential-rate ceilings', () => {
+  for (const status of Object.keys(PREFERENTIAL_ZERO_TOP_2026)) {
+    expectLiteral(PREFERENTIAL_ZERO_TOP_2026[status], `${status} 0% ceiling`);
+    expectLiteral(PREFERENTIAL_FIFTEEN_TOP_2026[status], `${status} 15% ceiling`);
+  }
 });
 
 test('widget carries the Social Security thresholds', () => {

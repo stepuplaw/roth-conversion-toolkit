@@ -8,6 +8,8 @@ export {
   IRMAA_2026_MFS,
   IRMAA_LOOKBACK_YEARS,
   PART_B_STANDARD_2026,
+  PREFERENTIAL_FIFTEEN_TOP_2026,
+  PREFERENTIAL_ZERO_TOP_2026,
   SENIOR_DEDUCTION_LAST_YEAR,
   SENIOR_DEDUCTION_PER_PERSON,
   SENIOR_DEDUCTION_RATE,
@@ -17,7 +19,16 @@ export {
   STANDARD_DEDUCTION_2026,
   type IrmaaTier,
 } from './data.js';
-export { agedAdditions, bracketRate, bracketRow, federalTax, seniorDeduction, standardDeduction } from './tax.js';
+export {
+  agedAdditions,
+  bracketRate,
+  bracketRow,
+  federalTax,
+  preferentialTax,
+  seniorDeduction,
+  standardDeduction,
+  type PreferentialSplit,
+} from './tax.js';
 export { taxableSocialSecurity } from './ss.js';
 export { irmaaTier, type IrmaaResult } from './irmaa.js';
 export { conversionWindow, rmdAge, type WindowResult } from './rmd.js';

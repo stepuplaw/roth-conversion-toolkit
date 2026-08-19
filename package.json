@@ -1,13 +1,15 @@
 {
   "name": "roth-conversion-toolkit",
-  "version": "0.1.0",
-  "description": "The 2026 Roth conversion math nobody's calculator runs: federal brackets plus the Social Security tax torpedo, the temporary senior-deduction clawback, and Medicare IRMAA cliffs two years out, with the list of accounts that can never convert. Every figure primary-source verified and dated. Zero dependencies, nothing leaves the browser.",
+  "version": "0.2.0",
+  "description": "The 2026 Roth conversion math nobody's calculator runs: federal brackets plus the Social Security tax torpedo, the capital-gain bump zone, the temporary senior-deduction clawback, and Medicare IRMAA cliffs two years out, with the list of accounts that can never convert. Every figure primary-source verified and dated. Zero dependencies, nothing leaves the browser.",
   "keywords": [
     "roth-conversion",
     "roth-ira",
     "ira",
     "rmd",
     "irmaa",
+    "qualified-dividends",
+    "capital-gains",
     "retirement",
     "tax-calculator",
     "social-security",
@@ -35,8 +37,14 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },
