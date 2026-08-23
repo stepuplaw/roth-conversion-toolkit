@@ -496,7 +496,32 @@
     render();
   }
 
+  function mount(root, options) {
+    if (!root) return function () {};
+    if (options) {
+      var brand = options.brand || (options.theme && options.theme.brand);
+      var fg = options.fg || (options.theme && options.theme.fg);
+      var muted = options.muted || (options.theme && options.theme.muted);
+      var line = options.line || (options.theme && options.theme.line);
+      var edge = options.edge || (options.theme && options.theme.edge);
+      if (brand) root.style.setProperty('--surc-brand', brand);
+      if (fg) root.style.setProperty('--surc-fg', fg);
+      if (muted) root.style.setProperty('--surc-mut', muted);
+      if (line) root.style.setProperty('--surc-line', line);
+      if (edge) root.style.setProperty('--surc-edge', edge);
+      if (options.credit === false) root.setAttribute('data-surc-credit', 'off');
+    }
+    root.setAttribute('data-surc-done', '1');
+    build(root);
+    return function unmount() {
+      root.innerHTML = '';
+      root.removeAttribute('data-surc-done');
+      root.classList.remove('surc');
+    };
+  }
+
   function init() {
+    if (typeof document === 'undefined') return;
     var nodes = document.querySelectorAll('[data-stepup-roth]');
     for (var i = 0; i < nodes.length; i++) {
       if (!nodes[i].getAttribute('data-surc-done')) {
@@ -506,9 +531,18 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  }
+
+  var widgetApi = { mount: mount, init: init };
+  if (typeof globalThis !== 'undefined') {
+    globalThis.RothConversionWidget = widgetApi;
+  } else if (typeof window !== 'undefined') {
+    window.RothConversionWidget = widgetApi;
   }
 })();

@@ -106,6 +106,26 @@ Lower-level pieces are exported too: `federalTax`, `taxableSocialSecurity`,
 `irmaaTier`, `rmdAge`, `conversionWindow`, `scenario`, and the raw 2026
 tables (`BRACKETS_2026`, `IRMAA_2026`, and friends).
 
+### React
+
+The embeddable calculator is also available as a React component:
+
+```tsx
+import { RothConversionCalculator } from 'roth-conversion-toolkit/react';
+
+export function App() {
+  return (
+    <RothConversionCalculator
+      brand="#1F4D3A"
+      credit={true}
+    />
+  );
+}
+```
+
+Theme custom properties (`brand`, `fg`, `muted`, `line`, `edge`) can be passed as individual props or via the `theme` object prop. React is declared as an optional peer dependency.
+
+
 ## Where every number comes from
 
 Each figure was read from the primary document on **August 19, 2026**, not
