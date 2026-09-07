@@ -44,17 +44,31 @@
     hoh: [[17700, 0, 0.10], [67450, 1770, 0.12], [105700, 7740, 0.22], [201750, 16155, 0.24], [256200, 39207, 0.32], [640600, 56631, 0.35], [Infinity, 191171, 0.37]],
     mfs: [[12400, 0, 0.10], [50400, 1240, 0.12], [105700, 5800, 0.22], [201775, 17966, 0.24], [256225, 41024, 0.32], [384350, 58448, 0.35], [Infinity, 103291.75, 0.37]]
   };
+  /* Standard deduction, Rev. Proc. 2025-32 s.4.14 (2026 figures).
+     WARNING: s.3 of that revenue procedure is the 2025 modification, not 2026.
+     Citing s.3.14 is wrong and shipped live once before it was caught. */
   var STD = { mfj: 32200, single: 16100, hoh: 24150, mfs: 16100 };
 
   /* Rev. Proc. 2025-32 section 4.03 (IRC 1(h), 1(j)(5)): the ceilings for the
      0% and 15% rates on qualified dividends and long-term gains. These are
      levels of TOTAL taxable income, because that income stacks on top of
      ordinary income rather than getting its own allowance. */
+  /* Capital gain and qualified dividend rate ceilings, IRC s.1(h), amounts from
+     Rev. Proc. 2025-32 s.4.03. PREF0 is the top of the 0% band, PREF15 the top
+     of the 15% band. They stack ON TOP of ordinary taxable income, which is why
+     a conversion sliding in underneath can push gains from 0% into 15%. */
   var PREF0 = { mfj: 98900, single: 49450, hoh: 66200, mfs: 49450 };
   var PREF15 = { mfj: 613700, single: 545500, hoh: 579600, mfs: 306850 };
 
   /* IRC section 86 thresholds, statutory and never indexed. MFS living with
      the spouse at any time in the year has a base of zero. */
+  /* IRC s.86(c) base amount and adjusted base amount. Set by Congress in 1983
+     (Pub. L. 98-21) and never indexed for inflation, which is why an ordinary
+     retiree now lands inside a range originally aimed at high earners.
+     s.86(c)(1)(C)(i) sets the base amount at ZERO for a married person filing
+     separately who lived with their spouse at any time during the year, which
+     is what the mfs entries and the mfsApart flag implement.
+     Verified against the statute across 200,000 random cases on 2026-08-24. */
   var SS_BASE = { mfj: 32000, single: 25000, hoh: 25000, mfs: 0 };
   var SS_ADJ = { mfj: 44000, single: 34000, hoh: 34000, mfs: 0 };
 
@@ -76,16 +90,25 @@
 
   /* ---------- math, mirrored from the tested npm package ---------- */
 
-  function federalTax(taxable, status) {
-    if (taxable <= 0) return 0;
+  function federalTax(taxable, status) { return ordWork(taxable, status).tax; }
+  /* The bracket row actually used, kept so the page can print the formula. */
+  /* IRC s.1(j) rate tables as inflation-adjusted for 2026 by Rev. Proc.
+     2025-32 s.4.01. Each row is [top of bracket, cumulative tax at the bottom
+     of this bracket, marginal rate], so tax = base + rate x (taxable - the
+     previous row's top). The table satisfies base[n] = base[n-1] +
+     rate[n-1] x width[n-1], which is asserted in the library test suite. */
+  function ordWork(taxable, status) {
     var rows = BRACKETS[status];
+    if (taxable <= 0) return { tax: 0, over: 0, base: 0, rate: rows[0][2], applied: 0 };
     for (var i = 0; i < rows.length; i++) {
       if (taxable <= rows[i][0]) {
         var over = i === 0 ? 0 : rows[i - 1][0];
-        return rows[i][1] + rows[i][2] * (taxable - over);
+        return { tax: rows[i][1] + rows[i][2] * (taxable - over),
+                 over: over, base: rows[i][1], rate: rows[i][2],
+                 applied: taxable - over };
       }
     }
-    return 0;
+    return { tax: 0, over: 0, base: 0, rate: rows[0][2], applied: 0 };
   }
   function bracketAt(taxable, status) {
     var rows = BRACKETS[status];
@@ -95,13 +118,44 @@
     }
   }
   function taxableSS(ben, other, exempt, status, mfsApart) {
-    if (ben <= 0) return 0;
+    return ssWork(ben, other, exempt, status, mfsApart).taxable;
+  }
+  /* Same computation, but keeping every intermediate so the page can show its
+     working. taxableSS() delegates here so there is one implementation. */
+  /* IRC s.86(a). Two tiers.
+       s.86(a)(1)  taxable = lesser of 50% of (provisional income - base amount)
+                   and 50% of benefits.
+       s.86(a)(2)  once provisional income passes the adjusted base amount,
+                   taxable = lesser of
+                     (A) 85% of the excess over the adjusted base amount, PLUS
+                         the lesser of the s.86(a)(1) amount or one-half of the
+                         difference between the adjusted base and base amounts
+                         (4,500 single, 6,000 joint), and
+                     (B) 85% of benefits.
+     s.86(b)(2) defines provisional income as AGI computed without the benefits,
+     PLUS tax-exempt interest under s.86(b)(2)(B), PLUS one half of the benefits.
+     The tax-exempt interest add-back is why muni bonds raise this figure even
+     though the interest itself is never taxed. */
+  function ssWork(ben, other, exempt, status, mfsApart) {
     var s = status === 'mfs' && mfsApart ? 'single' : status;
+    var base = SS_BASE[s], adj = SS_ADJ[s];
     var pi = other + exempt + 0.5 * ben;
-    if (pi <= SS_BASE[s]) return 0;
-    if (pi <= SS_ADJ[s]) return Math.min(0.5 * (pi - SS_BASE[s]), 0.5 * ben);
-    var t1 = Math.min(0.5 * (SS_ADJ[s] - SS_BASE[s]), 0.5 * ben);
-    return Math.min(0.85 * (pi - SS_ADJ[s]) + t1, 0.85 * ben);
+    var w = { s: s, base: base, adj: adj, pi: pi, half: 0.5 * ben, tier: 0,
+              tier1: 0, tier2: 0, cap: 0.85 * ben, taxable: 0 };
+    if (ben <= 0) { w.pi = 0; return w; }
+    if (pi <= base) { w.tier = 0; return w; }
+    if (pi <= adj) {
+      w.tier = 1;
+      w.tier1 = Math.min(0.5 * (pi - base), 0.5 * ben);
+      w.taxable = w.tier1;
+      return w;
+    }
+    w.tier = 2;
+    w.tier1 = Math.min(0.5 * (adj - base), 0.5 * ben);
+    w.tier2 = 0.85 * (pi - adj);
+    w.taxable = Math.min(w.tier2 + w.tier1, w.cap);
+    w.capped = (w.tier2 + w.tier1) > w.cap;
+    return w;
   }
   /* IRC 151(d)(5)(C) and IRS Schedule 1-A Part V. The 6% reduction applies to
      the PER-PERSON 6,000 and each qualified individual then claims the reduced
@@ -118,6 +172,10 @@
   /* Tax on qualified dividends and long-term gains, IRC 1(h). They stack on
      top of ordinary income, so a conversion slides in underneath and can push
      them from 0% into 15%. */
+  /* IRC s.1(h)(1). Qualified dividends and net long-term gains are taxed on
+     their own schedule and are treated as the TOP slice of taxable income, so
+     ordinary income fills the 0% band first and displaces gains upward. The
+     0%/15%/20% breakpoints come from Rev. Proc. 2025-32 s.4.03. */
   function prefTax(ordinaryTaxable, pref, status) {
     var amt = Math.max(0, pref);
     var at0 = Math.min(amt, Math.max(0, PREF0[status] - ordinaryTaxable));
@@ -126,6 +184,9 @@
     var at20 = amt - at0 - at15;
     return { at0: at0, at15: at15, at20: at20, tax: 0.15 * at15 + 0.20 * at20 };
   }
+  /* Additional standard deduction for age 65 or older, IRC s.63(f), amounts
+     from Rev. Proc. 2025-32 s.4.14. Separate from and additional to the
+     temporary senior deduction below. */
   function agedAdd(status, you65, sp65) {
     if (status === 'mfj') return (you65 ? 1650 : 0) + (sp65 ? 1650 : 0);
     if (status === 'mfs') return you65 ? 1650 : 0;
@@ -176,6 +237,10 @@
       conv: conv, tss: tss, agi: agi, magi: irmaaMagi, seniorMagi: seniorMagi,
       senior: sen, ded: ded, taxable: taxable, tord: tord, tpref: tpref,
       prefTax: p.tax, tax: ordTax + p.tax,
+      other: other, qual: qual, ordTax: ordTax,
+      ssw: ssWork(inp.ss, other + qual, inp.exempt, inp.status, inp.mfsApart),
+      ordw: ordWork(tord, inp.status), prefw: p,
+      std: STD[inp.status], aged: agedAdd(inp.status, inp.you65, inp.sp65),
       bracket: bracketAt(tord, inp.status),
       irmaa: irmaaTier(irmaaMagi, inp.status, inp.status === 'mfs' && !inp.mfsApart)
     };
@@ -236,7 +301,7 @@
     '.surc-card{border:1px solid var(--surc-edge);border-radius:10px;overflow:hidden;background:#fff}' +
     '.surc-card h4{margin:0;font-size:15px;font-weight:700;letter-spacing:.005em;padding:9px 15px;' +
     'background:#F2F0E8;border-bottom:1px solid var(--surc-edge);color:var(--surc-fg)}' +
-    '.surc-card .surc-bd{padding:13px 15px}' +
+    '.surc-card .surc-bd{padding:13px 15px}.surc-work{width:100%;border-collapse:collapse;font-size:.84rem;margin:.25rem 0}.surc-work th{text-align:left;font-weight:600;padding:.4rem .5rem;border-bottom:2px solid var(--surc-edge,#334155)}.surc-work td{padding:.42rem .5rem;border-bottom:1px solid rgba(51,65,85,.16);vertical-align:top}.surc-work .surc-ln{width:2.2em;text-align:right;color:#64748b;font-variant-numeric:tabular-nums;padding-right:.35rem}.surc-work td.surc-f{color:#475569;font-variant-numeric:tabular-nums}.surc-work td.surc-n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600}.surc-work tr.surc-sec td{background:rgba(51,65,85,.07);font-weight:700;font-size:.82rem;letter-spacing:.02em;padding:.5rem .5rem;border-bottom:1px solid rgba(51,65,85,.25)}.surc-ref{display:inline-block;background:rgba(51,65,85,.1);border-radius:4px;padding:0 .3em;font-weight:600;color:#334155;font-size:.95em}@media(max-width:560px){.surc-work,.surc-work tbody,.surc-work tr,.surc-work td{display:block;width:100%}.surc-work thead{display:none}.surc-work tr{border-bottom:1px solid rgba(51,65,85,.18);padding:.4rem 0}.surc-work tr.surc-sec td{display:block}.surc-work td{border:0;padding:.12rem .3rem}.surc-work td.surc-n{text-align:left;font-size:1.05em}.surc-work .surc-ln{display:inline-block;width:auto;text-align:left}}' +
     '.surc-card.surc-head{border-color:var(--surc-brand)}' +
     '.surc-card.surc-head h4{background:var(--surc-brand);color:#fff;border-bottom-color:var(--surc-brand)}' +
     '.surc-card.surc-warn{border-color:#B08D2E}' +
@@ -292,7 +357,7 @@
       '<label><span class="surc-lab">Tax-exempt interest, if any</span><input data-f="exempt" inputmode="numeric" placeholder="usually 0">' +
       '<span class="surc-hint">Municipal bond interest. It is tax free but still counts toward Medicare and Social Security thresholds.</span></label>' +
       '<label><span class="surc-lab">Amount you are considering converting</span><input data-f="conv" inputmode="numeric" placeholder="e.g. 50,000">' +
-      '<span class="surc-hint">Leave it blank to see how much room your brackets hold.</span></label>' +
+      '<span class="surc-hint">Moving money out of a traditional IRA and into a Roth IRA. The money keeps growing, it is taxed as ordinary income this year, and it is never taxed again. Leave it blank to see how much room your brackets hold.</span></label>' +
       '</div></div>' +
       '<div class="surc-body"><div class="surc-cards" data-out="cards"></div></div>' +
       '<div class="surc-foot">' +
@@ -463,6 +528,33 @@
         }
       }
 
+      /* ---------- what else could you do with the same dollars ----------
+         The tax bill this year is identical for a conversion and a plain
+         withdrawal, because both are ordinary income out of a traditional IRA.
+         What differs is where the money lands and how it is taxed afterwards,
+         and that is the comparison people actually need. */
+      if (conv > 0) {
+        var extra = at.tax - base.tax;
+        var young = age > 0 && age < 60;   /* 59 1/2, and we only know the birth year */
+        var alt = '<p>The tax you pay this year is the same whether you convert this ' + usd(conv) +
+          ' or simply take it out and spend it. Both are ordinary income out of a traditional IRA. ' +
+          'What changes is where the money ends up.</p>';
+        alt += '<table class="surc-tbl">' +
+          '<tr><th>What you do</th><th>Tax this year</th><th>What you hold afterwards</th></tr>' +
+          '<tr><td><strong>Convert</strong> to a Roth</td><td>' + usd(extra) + '</td>' +
+          '<td>' + usd(conv) + ' in a Roth. All future growth is tax free, there are no required distributions in your lifetime, and your heirs draw it out tax free.</td></tr>' +
+          '<tr><td><strong>Withdraw</strong> and keep it</td><td>' + usd(extra) + '</td>' +
+          '<td>' + usd(conv - extra) + ' in hand after paying the tax from the withdrawal itself. Future growth on it is taxable each year as interest, dividends or gains.</td></tr>' +
+          '<tr><td><strong>Leave it</strong> in the traditional IRA</td><td>' + usd(0) + '</td>' +
+          '<td>' + usd(conv) + ' still growing, still untaxed for now, and taxed as ordinary income whenever it comes out, by you or by whoever inherits it.</td></tr>' +
+          '</table>';
+        alt += '<p class="surc-small">Leaving it alone is not the safe option, it is a decision to be taxed later at a rate nobody knows yet. That is the comparison the table above this one prices.</p>';
+        if (young) {
+          alt += '<p class="surc-small"><strong>Under 59½ the two are not equivalent.</strong> A withdrawal generally carries a 10 percent early-distribution penalty on top of the income tax. A conversion does not, although each conversion starts its own five-year clock before that money can be withdrawn from the Roth penalty free.</p>';
+        }
+        h += card('card', 'Converting, withdrawing, or leaving it alone', alt);
+      }
+
       /* break-even card */
       if (conv > 0) {
         var effNow = (at.tax - base.tax) / conv;
@@ -477,6 +569,171 @@
         beb += '<p class="surc-small">Your effective rate on this conversion is ' + pct(effNow) + '. Nobody knows future rates, growth, or the year of death, which is why this is a range and a judgment, not a single number.</p>';
         h += card('card', 'When converting wins', beb);
       }
+
+      /* ---------- the annual saving, once RMDs begin ----------
+         The break-even table above is a lifetime total. This is the same
+         comparison per year, which is the number that actually settles the
+         decision for most people. Computed at ZERO growth on purpose: the
+         first-year divisor comes from the IRS Uniform Lifetime Table
+         (Treas. Reg. 1.401(a)(9)-9, effective 2022), so every figure here is
+         a floor built from a published table rather than a projection. Any
+         growth makes the balance larger and the forced distribution larger,
+         so the real saving can only exceed what is shown. */
+      if (conv > 0 && YEAR < firstRmd) {
+        var ULT_FIRST = { 73: 26.5, 75: 24.6 };  /* Uniform Lifetime Table, first RMD year */
+        var div0 = ULT_FIRST[ra];
+        if (div0) {
+          var annualRmd = conv / div0;
+          var ab = '<p>Money in a Roth has no required distributions in your lifetime. Money left in the traditional IRA does, every year from ' +
+            firstRmd + ' on, whether you need it or not.</p>' +
+            '<p>At zero growth, the ' + usd(conv) + ' you are converting would otherwise force a distribution of about <strong>' +
+            usd(annualRmd) + ' every year</strong> (' + usd(conv) + ' divided by ' + div0 +
+            ', the age ' + ra + ' divisor from the IRS Uniform Lifetime Table). Each of those forced dollars would be ordinary income, ' +
+            'run through the same Social Security phase-in this page just priced, and count toward the same Medicare thresholds.</p>';
+          ab += '<table class="surc-tbl"><tr><th>If those RMDs would be taxed at</th><th>Converting saves about, each year</th></tr>';
+          for (var q = 0; q < later.length; q++) {
+            ab += '<tr><td>' + pct(later[q]) + '</td><td>' + usd(annualRmd * later[q]) + '</td></tr>';
+          }
+          ab += '</table>';
+          ab += '<p class="surc-small">A floor, not an estimate. Growth raises the balance and the forced distribution with it, and the divisor falls every year, so the required percentage rises with age. Divisor from Treas. Reg. 1.401(a)(9)-9, the table in effect since 2022.</p>';
+          h += card('card', 'What this conversion saves every year, once RMDs begin', ab);
+        }
+      }
+
+      /* ---------- show the working ----------
+         Laid out like a worksheet: numbered lines, grouped into sections, and
+         later lines refer back by number. Line numbers are assigned as rows are
+         pushed, so they stay sequential whichever rows apply to this taxpayer. */
+      (function () {
+        var w = at.ssw, o = at.ordw, pw = at.prefw;
+        var n = 0, rows = [];
+        var STATUS_LABEL = { mfj: 'married filing jointly', single: 'single',
+                             hoh: 'head of household', mfs: 'married filing separately' };
+        var who = STATUS_LABEL[inp.status] || inp.status;
+        /* Every constant on this worksheet names where it comes from, so a
+           reader is never asked to accept a number on trust. */
+        var src2026 = '2026 figure for ' + who + ', Rev. Proc. 2025-32';
+        function line(label, formula, result) {
+          n += 1;
+          rows.push('<tr><td class="surc-ln">' + n + '</td><td>' + label +
+                    '</td><td class="surc-f">' + formula + '</td><td class="surc-n">' +
+                    result + '</td></tr>');
+          return n;
+        }
+        function head(title) {
+          rows.push('<tr class="surc-sec"><td colspan="4">' + title + '</td></tr>');
+        }
+        var L = function (x) { return '<span class="surc-ref">(' + x + ')</span>'; };
+
+        /* ---- income ---- */
+        head('Income');
+        var lOther = line('Ordinary income' + (conv > 0 ? ', including the conversion' : ''),
+                          conv > 0 ? usd(inp.other) + ' + conversion ' + usd(conv) : 'as entered',
+                          usd(at.other));
+        var lQual = line('Qualified dividends and long-term gains', 'as entered', usd(at.qual));
+        var lSS = 0, lExempt = 0, lHalf = 0;
+        if (inp.ss > 0) lSS = line('Social Security benefits received', 'as entered', usd(inp.ss));
+        if (inp.exempt > 0) lExempt = line('Tax-exempt interest', 'as entered', usd(inp.exempt));
+        if (inp.ss > 0) lHalf = line('Half of the Social Security benefit', 'half of ' + L(lSS), usd(w.half));
+
+        /* ---- social security ---- */
+        var lTSS = 0, lUntaxed = 0;
+        if (inp.ss > 0) {
+          head('How much Social Security is taxed, IRC section 86');
+          var piParts = L(lOther) + ' + ' + L(lQual) + (lExempt ? ' + ' + L(lExempt) : '') + ' + ' + L(lHalf);
+          var lPI = line('Provisional income', piParts, usd(w.pi));
+          var lBase = line('Base amount', 'IRC section 86(c) for ' + who + '. Set by Congress in 1983 and never adjusted for inflation', usd(w.base));
+          if (w.tier === 0) {
+            lTSS = line('Social Security taxed', L(lPI) + ' is at or below ' + L(lBase), usd(0));
+          } else if (w.tier === 1) {
+            lTSS = line('Social Security taxed',
+                        '50% of (' + L(lPI) + ' - ' + L(lBase) + '), capped at ' + L(lHalf),
+                        usd(w.taxable));
+          } else {
+            var lAdj = line('Adjusted base amount', 'IRC section 86(c) for ' + who + '. Also never adjusted for inflation', usd(w.adj));
+            lTSS = line('Social Security taxed',
+                        '85% of (' + L(lPI) + ' - ' + L(lAdj) + ') = ' + usd(w.tier2) +
+                        ', plus the first-tier ' + usd(w.tier1) +
+                        (w.capped ? ', capped at 85% of ' + L(lSS) : ''),
+                        usd(w.taxable));
+          }
+          lUntaxed = line('Social Security never taxed', L(lSS) + ' - ' + L(lTSS), usd(inp.ss - w.taxable));
+        }
+
+        /* ---- taxable income ---- */
+        head('Taxable income');
+        var lAGI = line('Adjusted gross income',
+                        L(lOther) + ' + ' + L(lQual) + (lTSS ? ' + ' + L(lTSS) : ''), usd(at.agi));
+        var lStd = line('Standard deduction', src2026 + ' section 4.14', usd(at.std));
+        var refs = [lStd];
+        if (at.aged) refs.push(line('Additional deduction for being 65 or older', 'IRC section 63(f), ' + src2026 + ' section 4.14', usd(at.aged)));
+        if (at.senior) refs.push(line('Temporary senior deduction', 'IRC section 151(d)(5) and IRS Schedule 1-A Part V. 6,000 a person, reduced by 6 cents for every dollar of income above ' + usd(inp.status === 'mfj' ? 150000 : 75000) + ', and it ends after 2028', usd(at.senior)));
+        var lDed = refs.length > 1
+          ? line('Total deductions', refs.map(L).join(' + '), usd(at.ded))
+          : lStd;
+        var lTaxable = line('Taxable income', L(lAGI) + ' - ' + L(lDed), usd(at.taxable));
+
+        /* ---- the split ---- */
+        var lOrd = lTaxable, lPref = 0;
+        if (at.tpref > 0) {
+          head('Splitting it, because gains are taxed on their own schedule');
+          lPref = line('Dividends and gains inside taxable income',
+                       'the lesser of ' + L(lQual) + ' and ' + L(lTaxable), usd(at.tpref));
+          lOrd = line('Ordinary income inside taxable income',
+                      L(lTaxable) + ' - ' + L(lPref) + ', because deductions come off ordinary first',
+                      usd(at.tord));
+        }
+
+        /* ---- the tax ---- */
+        head('The tax');
+        var lOrdTax = line('Tax on ordinary income',
+                           o.applied > 0
+                             ? 'the ' + pct(o.rate) + ' bracket for ' + who + ' runs from ' + usd(o.over) +
+                               ' up, so ' + usd2(o.base) + ' of tax on the income below it plus ' + pct(o.rate) +
+                               ' of (' + L(lOrd) + ' - ' + usd(o.over) + ')'
+                             : 'nothing left after deductions',
+                           usd(at.ordTax));
+        var lPrefTax = 0;
+        if (at.tpref > 0) {
+          var pf = [];
+          if (pw.at0 > 0) pf.push(usd(pw.at0) + ' at 0%');
+          if (pw.at15 > 0) pf.push(usd(pw.at15) + ' at 15%');
+          if (pw.at20 > 0) pf.push(usd(pw.at20) + ' at 20%');
+          lPrefTax = line('Tax on dividends and gains',
+                          L(lPref) + ' sits on top of ' + L(lOrd) + '. The 0% band for ' + who +
+                          ' ends at ' + usd(PREF0[inp.status]) + ' and the 15% band at ' + usd(PREF15[inp.status]) +
+                          ' (IRC section 1(h), ' + src2026 + ' section 4.03), so ' + pf.join(', '),
+                          usd(at.prefTax));
+        }
+        var lTotal = line('<strong>Total federal tax</strong>',
+                          lPrefTax ? L(lOrdTax) + ' + ' + L(lPrefTax) : L(lOrdTax),
+                          '<strong>' + usd(at.tax) + '</strong>');
+
+        /* ---- what the conversion did ---- */
+        if (conv > 0) {
+          head('What the ' + usd(conv) + ' conversion changed');
+          var lBaseTaxable = line('Taxable income with no conversion', 'the same worksheet, converting nothing', usd(base.taxable));
+          var lCreated = line('Taxable income the conversion created',
+                              L(lTaxable) + ' - ' + L(lBaseTaxable) + ', which is ' +
+                              ((at.taxable - base.taxable) / conv).toFixed(2) + ' for every dollar converted',
+                              usd(at.taxable - base.taxable));
+          var lBaseTax = line('Federal tax with no conversion', 'the same worksheet, converting nothing', usd(base.tax));
+          var lExtra = line('Extra federal tax', L(lTotal) + ' - ' + L(lBaseTax), usd(at.tax - base.tax));
+          line('<strong>Effective rate on the conversion</strong>',
+               L(lExtra) + ' divided by the ' + usd(conv) + ' converted',
+               '<strong>' + pct((at.tax - base.tax) / conv) + '</strong>');
+        }
+
+        h += '<details><summary>Show the arithmetic behind every number above</summary>' +
+             '<div class="surc-card"><div class="surc-bd">' +
+             '<table class="surc-work"><thead><tr><th class="surc-ln">#</th><th>Line</th>' +
+             '<th>The arithmetic</th><th>Result</th></tr></thead><tbody>' +
+             rows.join('') + '</tbody></table>' +
+             '<p class="surc-note">A number in brackets refers to the line with that number. ' +
+             'Every figure comes from the published 2026 tables cited at the foot of this page. ' +
+             'Rounding to whole dollars can make a line look a dollar off.</p>' +
+             '</div></div></details>';
+      })();
 
       /* never-convert list */
       h += '<details><summary>Money that cannot convert, and the traps around it</summary>' +

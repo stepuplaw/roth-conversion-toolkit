@@ -66,7 +66,7 @@ jsDelivr mirrors the npm package, so the file below is served from a
 neutral origin rather than a law firm's domain:
 
 ```js
-import * as toolkit from 'https://cdn.jsdelivr.net/npm/roth-conversion-toolkit@0.1.0/dist/index.js';
+import * as toolkit from 'https://cdn.jsdelivr.net/npm/roth-conversion-toolkit@0.2.1/dist/index.js';
 ```
 
 ## Use
