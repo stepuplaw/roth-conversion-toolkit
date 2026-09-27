@@ -35,7 +35,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
     }
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
   },
   "files": [
     "dist",
@@ -55,6 +62,8 @@
     "test": "node --test"
   },
   "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
     "typescript": "^5.6.0"
   }
 }

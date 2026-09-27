@@ -753,6 +753,26 @@
     render();
   }
 
+  function mount(root) {
+    if (!root) return function () {};
+
+    if (!root.getAttribute('data-surc-done')) {
+      root.setAttribute('data-surc-done', '1');
+      build(root);
+    }
+
+    return function unmount() {
+      root.removeAttribute('data-surc-done');
+      root.innerHTML = '';
+      root.classList.remove('surc');
+    };
+  }
+
+  if (typeof window !== 'undefined') {
+    window.StepUpRoth = window.StepUpRoth || {};
+    window.StepUpRoth.mount = mount;
+  }
+
   function init() {
     var nodes = document.querySelectorAll('[data-stepup-roth]');
     for (var i = 0; i < nodes.length; i++) {
@@ -763,9 +783,11 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
   }
 })();
