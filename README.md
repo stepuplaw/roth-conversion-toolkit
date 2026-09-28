@@ -106,6 +106,29 @@ Lower-level pieces are exported too: `federalTax`, `taxableSocialSecurity`,
 `irmaaTier`, `rmdAge`, `conversionWindow`, `scenario`, and the raw 2026
 tables (`BRACKETS_2026`, `IRMAA_2026`, and friends).
 
+### React component
+
+A thin React wrapper is available via the `roth-conversion-toolkit/react` subpath export. It wraps the existing calculator widget DOM mount pattern without duplicating math or markup. React (`>=18.0.0`) is a peer dependency.
+
+```tsx
+import { RothConversionCalculator } from "roth-conversion-toolkit/react";
+
+export function App() {
+  return (
+    <RothConversionCalculator
+      brand="#1F4D3A"
+      fg="#1E293B"
+      mut="#475569"
+      line="rgba(71,85,105,.25)"
+      edge="#334155"
+      credit={false}
+    />
+  );
+}
+```
+
+The component maps theme props (`brand`, `fg`, `mut`, `line`, `edge`) directly to the widget's CSS custom properties (`--surc-brand`, `--surc-fg`, `--surc-mut`, `--surc-line`, `--surc-edge`), leaving default styles intact when omitted. Setting `credit={false}` sets `data-surc-credit="off"` to hide the attribution footer. Standard container props (`className`, `style`, `id`) are passed directly to the outer element.
+
 ## Where every number comes from
 
 Each figure was read from the primary document on **August 19, 2026**, not
